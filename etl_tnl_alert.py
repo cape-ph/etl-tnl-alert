@@ -147,8 +147,8 @@ else:
     interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
 interim["Date Received"] = pd.to_datetime(data["Date_Received"], errors="coerce")
 interim["Date Reported"] = pd.to_datetime(data["Date_Reported"], errors="coerce")
-interim["Patient_Name"] = list(
-    map(lambda x: f"{x[1]}, {x[0]}", zip(data["First_Name"], data["Last_Name"]))
+interim["Patient_Name"] = data.apply(
+    lambda x: "{Last_Name}, {First_Name}".format(**x), 1
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
 interim["Source"] = data["Specimen"].str.capitalize()

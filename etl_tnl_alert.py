@@ -98,7 +98,7 @@ logger.info(f"Obtained object {alert_obj_key} from bucket {raw_bucket_name}.")
 data = pd.read_excel(response.get("Body"))
 
 # strip out the ingorable header and reset the index
-data = data[1:].reset_index(drop=True)
+data[1:].reset_index(drop=True, inplace=True)
 
 data.columns = OUT_COL_NAMES
 
@@ -151,7 +151,7 @@ interim["Patient_Name"] = list(
     map(lambda x: f"{x[1]}, {x[0]}", zip(data["First_Name"], data["Last_Name"]))
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
-interim["Source"] = list(map(lambda x: x.capitalize(), data["Specimen"]))
+interim["Source"] = data["Specimen"].str.capitalize()
 interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
 interim["Testing Lab"] = "TNL"
 

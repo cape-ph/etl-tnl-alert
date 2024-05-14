@@ -5,11 +5,9 @@ import re
 import sys
 
 import boto3 as boto3
-import dateutil.parser as dparser
 import pandas as pd
 from awsglue.context import GlueContext
 from awsglue.utils import getResolvedOptions
-from docx import Document
 from pyspark.context import SparkContext
 
 # for our purposes here, the spark and glue context are only (currently) needed
@@ -133,73 +131,29 @@ else:
     #      `X. whatevs ,`, so if the origanism is ever fully spelled out or
     #      anything, this will break. We need to see if we can get a common
     #      format for everything in this first column.
+    # NOTE:doing the following for loop as a list comp caused the LSP to
+    #      bug out because a non-match in `re.search` returns `None`, and
+    #      `group` is not an attribute of `None`. so went with a for loop
     org_pattern = r"([A-Z]\..*?)(?=,)"
     # compiled pattern so we only compile once
     comp_pattern = re.compile(org_pattern)
-    pairs = [
-        (
-            re.sub(org_pattern, lambda x: "", s),
-            comp_pattern.search(s).group(0) or "UNKNOWN",
+    pairs = []
+    for s in data["Testing-Results"]:
+        search = comp_pattern.search(s)
+        pairs.append(
+            (re.sub(org_pattern, "", s), search.group(0) if search else "UNKNOWN")
         )
-        for s in data["Testing-Results"]
-    ]
     # extract the lists and put them in the right places
     interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
 interim["Date Received"] = pd.to_datetime(data["Date_Received"], errors="coerce")
 interim["Date Reported"] = pd.to_datetime(data["Date_Reported"], errors="coerce")
-interim["Patient Name"] = (
-    data["Last_Name"].str.title() + ", " + data["First_Name"].str.title()
+interim["Patient_Name"] = list(
+    map(lambda x: f"{x[1]}, {x[0]}", zip(data["First_Name"], data["Last_Name"]))
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
-interim["Source"] = data["Specimen"].str.capitalize()
+interim["Source"] = list(map(lambda x: x.capitalize(), data["Specimen"]))
 interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
 interim["Testing Lab"] = "TNL"
-
-
-####################
-
-
-# NOTE: this document is assumed to contain a single table that needs to be
-#       processed and nothing else. The file consists of:
-#       - a 2 column header row that contains a column (0 index) with the alert
-#         report date, which we need (rest of this row can be ignored)
-#       - another header row that contains all the column names for the table
-#       - rows of data
-document = Document(response.get("Body"))
-
-table = document.tables[0]
-data = [[cell.text for cell in row.cells] for row in table.rows]
-data = pd.DataFrame(data)
-
-# grab the alert report date and then drop that row
-date_received = pd.to_datetime(dparser.parse(data.iloc[0, 0], fuzzy=True))
-data.columns = data.loc[1]
-data = data[2:].reset_index(drop=True)
-
-# now perform the ETL on the data rows
-# NOTE: Questions about the data:
-#           - Do we need to split this name to better enable queries later?
-#           - will the name only ever be composed of first and last (i.e. no
-#             middle name handling)?
-#           - do we not want the lab id to carry over into clean data? same
-#             with organism id (and anything else that doesn't carry over
-#             currently). there's very little penalty (storage cost) for it
-#             carrying over, and if it's not part of the AR log, we just don't
-#             include it in the AR query, but we still have it if we end up
-#             needing it for anything else
-interim = pd.DataFrame()
-interim["Mechanism (*Submitters Report)"] = data["Anti-Microbial Resistance RT-PCR"]
-interim["Organism"] = data["Organism ID"]
-interim["Date Received"] = date_received
-interim["Date Reported"] = date_received
-interim["Patient Name"] = data["Patient Name"]
-interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
-interim["Source"] = data["Source"].str.capitalize()
-interim["Date of Collection"] = pd.to_datetime(
-    data["Date of Collection"], errors="coerce"
-)
-interim["Testing Lab"] = "GPHL"
-interim["Facility of Origin"] = data["Received from"]
 
 # write out the transofrmed data
 with io.StringIO() as csv_buff:

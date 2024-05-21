@@ -95,7 +95,7 @@ logger.info(f"Obtained object {alert_obj_key} from bucket {raw_bucket_name}.")
 #       - a 1 column header row that can be ignored
 #       - another header row that contains all the column names for the table
 #       - rows of data
-data = pd.read_excel(response.get("Body").read(), engine="openpyxl")
+data = pd.read_excel(response.get("Body").read(), engine="openpyxl", skiprows=1)
 
 # strip out the ingorable header and reset the index
 data[1:].reset_index(drop=True, inplace=True)
@@ -120,7 +120,7 @@ if data["Testing-Results"][1].find("Candida auris"):
     # data column
     pairs = [
         (m.strip(), o.strip())
-        for m, o in list(map(lambda x: x.split("-"), data["Testing-Results"][1:]))
+        for m, o in list(map(lambda x: x.split("-"), data["Testing-Results"]))
     ]
     # extract the lists and put them in the right places
     interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
@@ -137,20 +137,22 @@ else:
     # compiled pattern so we only compile once
     comp_pattern = re.compile(org_pattern)
     pairs = []
-    for s in data["Testing-Results"][1:]:
+    for s in data["Testing-Results"]:
         search = comp_pattern.search(s)
         pairs.append(
             (re.sub(org_pattern, "", s), search.group(0) if search else "UNKNOWN")
         )
+
     # extract the lists and put them in the right places
-    interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
+    interim["Mechanism (*Submitters Report)"], interim["Organism"] = list(zip(*pairs))
+
 interim["Date Received"] = pd.to_datetime(data["Date_Received"], errors="coerce")
 interim["Date Reported"] = pd.to_datetime(data["Date_Reported"], errors="coerce")
-interim["Patient_Name"] = data[1:].apply(
-    lambda x: "{Last_Name}, {First_Name}".format(**x), 1
+interim["Patient_Name"] = data.apply(
+    lambda x: "{Last_Name}, {First_Name}".format(**x), axis=1
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
-interim["Source"] = data["Specimen"][1:].str.capitalize()
+interim["Source"] = data["Specimen"].apply(lambda x: x.capitalize())
 interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
 interim["Testing Lab"] = "TNL"
 

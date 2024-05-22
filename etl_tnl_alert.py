@@ -12,7 +12,7 @@ from pyspark.sql import SparkSession
 
 # for our purposes here, the spark and glue context are only (currently) needed
 # to get the logger.
-spark_ctx = SparkSession.builder.getOrCreate()
+spark_ctx = SparkSession.builder.getOrCreate()  # pyright: ignore
 glue_ctx = GlueContext(spark_ctx)
 logger = glue_ctx.get_logger()
 

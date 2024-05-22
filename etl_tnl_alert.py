@@ -12,7 +12,7 @@ from pyspark.sql import SparkSession
 
 # for our purposes here, the spark and glue context are only (currently) needed
 # to get the logger.
-spark_ctx = SparkSession.builder.getOrCreate()
+spark_ctx = SparkSession.builder.getOrCreate()  # pyright: ignore
 glue_ctx = GlueContext(spark_ctx)
 logger = glue_ctx.get_logger()
 
@@ -115,7 +115,7 @@ interim = pd.DataFrame()
 #       and see if we can get all alerts put into a similar format, but for
 #       right now we'll check for the substring 'Candida auris' in the first
 #       non-header row and react based on that (TODO: SUPER BRITTLE).
-if data["Testing-Results"][1].find("Candida auris") > 0:
+if data["Testing-Results"].iloc[1].find("Candida auris") > 0:
     # get a list of pairs of (mechanism, organism) from manipulating the incoming
     # data column
     pairs = [

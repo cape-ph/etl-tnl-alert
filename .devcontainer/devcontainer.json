@@ -1,0 +1,53 @@
+{
+  "name": "glue-pyspark",
+  
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "GLUE_VERSION": "4.0.0"
+    }
+  },
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/glue_user/workspace,type=bind",
+	"workspaceFolder": "/home/glue_user/workspace",
+
+  "mounts": [
+    "source=${localEnv:USERPROFILE}${localEnv:HOME}/.aws,dst=/home/glue_user/.aws,readonly,type=bind"
+  ],
+
+  "containerEnv": {
+    "DISABLE_SSL": "true"
+  },
+
+  "postAttachCommand": "bash ./.devcontainer/post-attach.sh",
+
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.isort"
+      ],
+      "settings": {
+        "python.envFile": "${containerWorkspaceFolder}/venv",
+        "python.defaultInterpreterPath": "./venv/bin/python",
+        "black-formatter.importStrategy": "fromEnvironment",
+        "isort.importStrategy": "fromEnvironment",
+        "python.analysis.extraPaths": [
+          "/home/glue_user/aws-glue-libs/PyGlue.zip:/home/glue_user/spark/python/lib/py4j-0.10.9-src.zip:/home/glue_user/spark/python/"
+        ],
+        "python.formatting.provider": "none",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+          }
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [4040, 18080]
+}

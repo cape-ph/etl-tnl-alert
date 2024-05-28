@@ -8,11 +8,11 @@ import boto3 as boto3
 import pandas as pd
 from awsglue.context import GlueContext
 from awsglue.utils import getResolvedOptions
-from pyspark.context import SparkContext
+from pyspark.sql import SparkSession
 
 # for our purposes here, the spark and glue context are only (currently) needed
 # to get the logger.
-spark_ctx = SparkContext()
+spark_ctx = SparkSession.builder.getOrCreate()  # pyright: ignore
 glue_ctx = GlueContext(spark_ctx)
 logger = glue_ctx.get_logger()
 
@@ -95,7 +95,7 @@ logger.info(f"Obtained object {alert_obj_key} from bucket {raw_bucket_name}.")
 #       - a 1 column header row that can be ignored
 #       - another header row that contains all the column names for the table
 #       - rows of data
-data = pd.read_excel(response.get("Body"))
+data = pd.read_excel(response.get("Body").read(), engine="openpyxl", skiprows=1)
 
 # strip out the ingorable header and reset the index
 data[1:].reset_index(drop=True, inplace=True)
@@ -113,10 +113,9 @@ interim = pd.DataFrame()
 #       be slightly different for this cell and we need a way to know which
 #       format to parse. Ideally we'd work with the producers of the alerts
 #       and see if we can get all alerts put into a similar format, but for
-#       right now we'll check for the substring 'Candida auris' and react
-#       based on that.
-
-if data.find("Candida auris"):
+#       right now we'll check for the substring 'Candida auris' in the first
+#       non-header row and react based on that (TODO: SUPER BRITTLE).
+if data["Testing-Results"].iloc[1].find("Candida auris") > 0:
     # get a list of pairs of (mechanism, organism) from manipulating the incoming
     # data column
     pairs = [
@@ -143,15 +142,17 @@ else:
         pairs.append(
             (re.sub(org_pattern, "", s), search.group(0) if search else "UNKNOWN")
         )
+
     # extract the lists and put them in the right places
     interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
+
 interim["Date Received"] = pd.to_datetime(data["Date_Received"], errors="coerce")
 interim["Date Reported"] = pd.to_datetime(data["Date_Reported"], errors="coerce")
 interim["Patient_Name"] = data.apply(
-    lambda x: "{Last_Name}, {First_Name}".format(**x), 1
+    lambda x: "{Last_Name}, {First_Name}".format(**x), axis=1
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
-interim["Source"] = data["Specimen"].str.capitalize()
+interim["Source"] = data["Specimen"].apply(lambda x: x.capitalize())
 interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
 interim["Testing Lab"] = "TNL"
 

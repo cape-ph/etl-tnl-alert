@@ -155,6 +155,7 @@ interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
 interim["Source"] = data["Specimen"].apply(lambda x: x.capitalize())
 interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
 interim["Testing Lab"] = "TNL"
+interim["State_Lab_ID"] = data["State_Lab_ID"]
 
 # write out the transofrmed data
 with io.StringIO() as csv_buff:

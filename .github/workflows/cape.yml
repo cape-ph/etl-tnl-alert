@@ -1,0 +1,15 @@
+name: CAPE
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    python:
+        name: Python
+        uses: cape-ph/.github/.github/workflows/python_checks.yml@main
+        with:
+            pytest: false
+    general:
+        name: General
+        uses: cape-ph/.github/.github/workflows/general_checks.yml@main

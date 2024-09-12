@@ -3,6 +3,7 @@
 import io
 import re
 import sys
+from pathlib import Path
 
 import boto3 as boto3
 import pandas as pd
@@ -59,7 +60,7 @@ clean_bucket_name = parameters["CLEAN_BUCKET_NAME"]
 # NOTE: for now we'll take the alert object key and change out the file
 #       extension for the clean data (leaving all namespacing and such). this
 #       will probably need to change
-clean_obj_key = alert_obj_key.replace(".xlsx", ".csv")
+clean_obj_key = str(Path(alert_obj_key).with_suffix(".csv"))
 
 # NOTE: May need some creds here
 s3_client = boto3.client("s3")
@@ -88,7 +89,7 @@ logger.info(f"Obtained object {alert_obj_key} from bucket {raw_bucket_name}.")
 # handle the document itself...
 
 # NOTE: The data in this spreadsheet can take a few different forms based on
-#       pathogen. This could change in the future. The speadsheet (regardless
+#       pathogen. This could change in the future. The spreadsheet (regardless
 #       of pathogen) does have the same general format and is assumed to
 #       contain a single worksheet with a table that needs to be processed,
 #       and nothing else. The table consists of:
@@ -140,24 +141,33 @@ else:
     for s in data["Testing-Results"]:
         search = comp_pattern.search(s)
         pairs.append(
-            (re.sub(org_pattern, "", s), search.group(0) if search else "UNKNOWN")
+            (
+                re.sub(org_pattern, "", s),
+                search.group(0) if search else "UNKNOWN",
+            )
         )
 
     # extract the lists and put them in the right places
     interim["Mechanism (*Submitters Report)"], interim["Organism"] = zip(*pairs)
 
-interim["Date Received"] = pd.to_datetime(data["Date_Received"], errors="coerce")
-interim["Date Reported"] = pd.to_datetime(data["Date_Reported"], errors="coerce")
+interim["Date Received"] = pd.to_datetime(
+    data["Date_Received"], errors="coerce"
+)
+interim["Date Reported"] = pd.to_datetime(
+    data["Date_Reported"], errors="coerce"
+)
 interim["Patient_Name"] = data.apply(
     lambda x: "{Last_Name}, {First_Name}".format(**x), axis=1
 )
 interim["DOB"] = pd.to_datetime(data["DOB"], errors="coerce")
 interim["Source"] = data["Specimen"].apply(lambda x: x.capitalize())
-interim["Date of Collection"] = pd.to_datetime(data["Date_Collection"], errors="coerce")
+interim["Date of Collection"] = pd.to_datetime(
+    data["Date_Collection"], errors="coerce"
+)
 interim["Testing Lab"] = "TNL"
 interim["State_Lab_ID"] = data["State_Lab_ID"]
 
-# write out the transofrmed data
+# write out the transformed data
 with io.StringIO() as csv_buff:
     interim.to_csv(csv_buff, index=False)
 
